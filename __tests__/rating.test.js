@@ -1,40 +1,14 @@
-/**
- * TESTS DE RATING DE PELÍCULAS
- * 
- * Este archivo contiene tests para el endpoint de rating de películas.
- * Usamos MOCKS de Prisma para no tocar la base de datos real durante los tests.
- * 
- * El endpoint PATCH /api/movies/:id/rating permite calificar una película
- * con un valor entre 0 y 5.
- */
+﻿const request = require('supertest');
 
-const request = require('supertest');
-
-// ============================================
-// CONFIGURACIÓN DE MOCKS
-// ============================================
-
-// Mock del módulo prisma ANTES de importar el servidor
 const mockPrisma = {
-  user: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-  },
   movie: {
-    findMany: jest.fn(),
     findFirst: jest.fn(),
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    updateMany: jest.fn(),
     update: jest.fn(),
-    deleteMany: jest.fn(),
   },
 };
 
 jest.mock('../lib/prisma', () => mockPrisma);
 
-// Mock del middleware de autenticación
-// Simula que el usuario está autenticado con userId 'user-123'
 jest.mock('../middleware/authMiddleware', () => {
   return (req, res, next) => {
     req.user = { userId: 'user-123' };
@@ -45,23 +19,14 @@ jest.mock('../middleware/authMiddleware', () => {
 const app = require('../server');
 const prisma = require('../lib/prisma');
 
-// ============================================
-// SUITE DE TESTS: API DE RATING
-// ============================================
-describe('API de Rating de Películas', () => {
-  // Limpiar todos los mocks después de cada test
+describe('API de Rating de Peliculas', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  // ==========================================
-  // TESTS: PATCH /api/movies/:id/rating
-  // ==========================================
   describe('PATCH /api/movies/:id/rating', () => {
-    
-    it('debería calificar una película con rating válido (3)', async () => {
-      // ARRANGE
-      const peliculaExistente = {
+    it('should rate a movie with a valid score of 3', async () => {
+      const existingMovie = {
         id: 'movie-1',
         title: 'Inception',
         director: 'Christopher Nolan',
@@ -70,27 +35,21 @@ describe('API de Rating de Películas', () => {
         isFavorite: false,
         rating: 0,
         ownerId: 'user-123',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
-      const peliculaActualizada = {
-        ...peliculaExistente,
+      const updatedMovie = {
+        ...existingMovie,
         rating: 3,
       };
 
-      // Mock: findFirst encuentra la película del usuario
-      prisma.movie.findFirst.mockResolvedValue(peliculaExistente);
-      // Mock: update actualiza el rating
-      prisma.movie.update.mockResolvedValue(peliculaActualizada);
+      prisma.movie.findFirst.mockResolvedValue(existingMovie);
+      prisma.movie.update.mockResolvedValue(updatedMovie);
 
-      // ACT
       const response = await request(app)
         .patch('/api/movies/movie-1/rating')
         .set('Authorization', 'Bearer fake-token')
         .send({ rating: 3 });
 
-      // ASSERT
       expect(response.status).toBe(200);
       expect(response.body.rating).toBe(3);
       expect(prisma.movie.findFirst).toHaveBeenCalledWith({
@@ -102,9 +61,8 @@ describe('API de Rating de Películas', () => {
       });
     });
 
-    it('debería calificar una película con rating máximo (5)', async () => {
-      // ARRANGE
-      const peliculaExistente = {
+    it('should rate a movie with maximum score 5', async () => {
+      const existingMovie = {
         id: 'movie-2',
         title: 'The Matrix',
         director: 'Wachowski Sisters',
@@ -113,184 +71,118 @@ describe('API de Rating de Películas', () => {
         isFavorite: true,
         rating: 4,
         ownerId: 'user-123',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
-      const peliculaActualizada = {
-        ...peliculaExistente,
+      const updatedMovie = {
+        ...existingMovie,
         rating: 5,
       };
 
-      prisma.movie.findFirst.mockResolvedValue(peliculaExistente);
-      prisma.movie.update.mockResolvedValue(peliculaActualizada);
+      prisma.movie.findFirst.mockResolvedValue(existingMovie);
+      prisma.movie.update.mockResolvedValue(updatedMovie);
 
-      // ACT
       const response = await request(app)
         .patch('/api/movies/movie-2/rating')
         .set('Authorization', 'Bearer fake-token')
         .send({ rating: 5 });
 
-      // ASSERT
       expect(response.status).toBe(200);
       expect(response.body.rating).toBe(5);
+      expect(prisma.movie.update).toHaveBeenCalledWith({
+        where: { id: 'movie-2' },
+        data: { rating: 5 },
+      });
     });
 
-    it('debería devolver 404 si la película no existe', async () => {
-      // ARRANGE
-      // Mock: no encuentra la película
-      prisma.movie.findFirst.mockResolvedValue(null);
-
-      // ACT
-      const response = await request(app)
-        .patch('/api/movies/no-existe/rating')
-        .set('Authorization', 'Bearer fake-token')
-        .send({ rating: 3 });
-
-      // ASSERT
-      expect(response.status).toBe(404);
-      expect(response.body.error).toBe('Película no encontrada');
-    });
-
-    it('debería devolver 400 si el rating es menor a 0', async () => {
-      // ARRANGE
-      const peliculaExistente = {
-        id: 'movie-1',
-        title: 'Inception',
+    it('should allow setting rating to 0', async () => {
+      const existingMovie = {
+        id: 'movie-3',
+        title: 'Interstellar',
         director: 'Christopher Nolan',
-        year: 2010,
+        year: 2014,
+        posterUrl: 'https://example.com/interstellar.jpg',
+        isFavorite: false,
+        rating: 4,
         ownerId: 'user-123',
       };
 
-      prisma.movie.findFirst.mockResolvedValue(peliculaExistente);
+      const updatedMovie = { ...existingMovie, rating: 0 };
 
-      // ACT
+      prisma.movie.findFirst.mockResolvedValue(existingMovie);
+      prisma.movie.update.mockResolvedValue(updatedMovie);
+
       const response = await request(app)
-        .patch('/api/movies/movie-1/rating')
+        .patch('/api/movies/movie-3/rating')
         .set('Authorization', 'Bearer fake-token')
-        .send({ rating: -1 });
+        .send({ rating: 0 });
 
-      // ASSERT
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('El rating debe estar entre 0 y 5');
+      expect(response.status).toBe(200);
+      expect(response.body.rating).toBe(0);
     });
 
-    it('debería devolver 400 si el rating es mayor a 5', async () => {
-      // ARRANGE
-      const peliculaExistente = {
-        id: 'movie-1',
-        title: 'Inception',
-        director: 'Christopher Nolan',
-        year: 2010,
-        ownerId: 'user-123',
-      };
-
-      prisma.movie.findFirst.mockResolvedValue(peliculaExistente);
-
-      // ACT
+    it('should return 400 when rating is greater than 5', async () => {
       const response = await request(app)
         .patch('/api/movies/movie-1/rating')
         .set('Authorization', 'Bearer fake-token')
         .send({ rating: 6 });
 
-      // ASSERT
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('El rating debe estar entre 0 y 5');
     });
 
-    it('debería devolver 400 si el rating es undefined', async () => {
-      // ARRANGE
-      const peliculaExistente = {
-        id: 'movie-1',
-        title: 'Inception',
-        director: 'Christopher Nolan',
-        year: 2010,
-        ownerId: 'user-123',
-      };
+    it('should return 400 when rating is less than 0', async () => {
+      const response = await request(app)
+        .patch('/api/movies/movie-1/rating')
+        .set('Authorization', 'Bearer fake-token')
+        .send({ rating: -1 });
 
-      prisma.movie.findFirst.mockResolvedValue(peliculaExistente);
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('El rating debe estar entre 0 y 5');
+    });
 
-      // ACT
+    it('should return 400 when rating is not an integer', async () => {
+      const response = await request(app)
+        .patch('/api/movies/movie-1/rating')
+        .set('Authorization', 'Bearer fake-token')
+        .send({ rating: 3.5 });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('El rating debe estar entre 0 y 5');
+    });
+
+    it('should return 400 when rating is missing', async () => {
       const response = await request(app)
         .patch('/api/movies/movie-1/rating')
         .set('Authorization', 'Bearer fake-token')
         .send({});
 
-      // ASSERT
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('El rating debe estar entre 0 y 5');
     });
 
-    it('debería devolver 400 si el rating es null', async () => {
-      // ARRANGE
-      const peliculaExistente = {
-        id: 'movie-1',
-        title: 'Inception',
-        director: 'Christopher Nolan',
-        year: 2010,
-        ownerId: 'user-123',
-      };
-
-      prisma.movie.findFirst.mockResolvedValue(peliculaExistente);
-
-      // ACT
-      const response = await request(app)
-        .patch('/api/movies/movie-1/rating')
-        .set('Authorization', 'Bearer fake-token')
-        .send({ rating: null });
-
-      // ASSERT
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('El rating debe estar entre 0 y 5');
-    });
-
-    it('debería devolver 404 si la película pertenece a otro usuario', async () => {
-      // ARRANGE
-      // La película existe pero pertenece a otro usuario
-      // Cuando el controlador busca con ownerId del usuario actual,
-      // no debería encontrar nada (devuelve null)
+    it('should return 404 when the movie does not exist', async () => {
       prisma.movie.findFirst.mockResolvedValue(null);
 
-      // ACT
       const response = await request(app)
-        .patch('/api/movies/movie-3/rating')
+        .patch('/api/movies/no-existe/rating')
         .set('Authorization', 'Bearer fake-token')
-        .send({ rating: 4 });
+        .send({ rating: 3 });
 
-      // ASSERT
       expect(response.status).toBe(404);
-      expect(response.body.error).toBe('Película no encontrada');
+      expect(response.body.error).toBe('Pel\u00edcula no encontrada');
+      expect(prisma.movie.update).not.toHaveBeenCalled();
     });
 
-    it('debería permitir cambiar el rating de una película', async () => {
-      // ARRANGE
-      const peliculaExistente = {
-        id: 'movie-1',
-        title: 'Inception',
-        director: 'Christopher Nolan',
-        year: 2010,
-        rating: 2,  // Ya tiene rating previo
-        ownerId: 'user-123',
-      };
+    it('should return 500 when an internal error occurs', async () => {
+      prisma.movie.findFirst.mockRejectedValue(new Error('DB error'));
 
-      const peliculaActualizada = {
-        ...peliculaExistente,
-        rating: 4,  // Nuevo rating
-      };
-
-      prisma.movie.findFirst.mockResolvedValue(peliculaExistente);
-      prisma.movie.update.mockResolvedValue(peliculaActualizada);
-
-      // ACT
       const response = await request(app)
         .patch('/api/movies/movie-1/rating')
         .set('Authorization', 'Bearer fake-token')
-        .send({ rating: 4 });
+        .send({ rating: 3 });
 
-      // ASSERT
-      expect(response.status).toBe(200);
-      expect(response.body.rating).toBe(4);
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBe('No se pudo calificar la pel\u00edcula');
     });
-
   });
 });

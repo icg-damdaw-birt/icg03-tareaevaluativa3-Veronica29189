@@ -21,6 +21,7 @@ router.get('/', getAllMovies);      // GET /api/movies - Listar mis películas
 router.get('/:id', getMovieById);   // GET /api/movies/:id - Ver una película
 router.post('/', createMovie);      // POST /api/movies - Crear película
 router.put('/:id', updateMovie);    // PUT /api/movies/:id - Actualizar película
+router.put('/:id/favorite', toggleFavorite); // PUT /api/movies/:id/favorite - Toggle favorito
 router.delete('/:id', deleteMovie); // DELETE /api/movies/:id - Eliminar película
 router.patch('/:id/favorite', toggleFavorite); // PATCH /api/movies/:id/favorite - Alternar favorito
 router.patch('/:id/rating', rateMovie);       // PATCH /api/movies/:id/rating - Calificar película

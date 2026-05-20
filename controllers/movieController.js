@@ -104,12 +104,12 @@ exports.deleteMovie = async (req, res) => {
   }
 };
 
-// PATCH /api/movies/:id/favorite - Alterna el estado de favorito
+// PUT /api/movies/:id/favorite - Alterna el estado de favorito
 exports.toggleFavorite = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Primero verificamos que la película existe y pertenece al usuario
+    // Buscar la película y verificar que pertenece al usuario
     const movie = await prisma.movie.findFirst({
       where: { id, ownerId: req.user.userId },
     });
@@ -118,7 +118,7 @@ exports.toggleFavorite = async (req, res) => {
       return res.status(404).json({ error: 'Película no encontrada' });
     }
 
-    // Invertimos el estado de isFavorite
+    // Alternar el valor de isFavorite
     const updatedMovie = await prisma.movie.update({
       where: { id },
       data: { isFavorite: !movie.isFavorite },
@@ -126,7 +126,7 @@ exports.toggleFavorite = async (req, res) => {
 
     res.json(updatedMovie);
   } catch (error) {
-    res.status(500).json({ error: 'No se pudo cambiar el favorito' });
+    res.status(500).json({ error: 'No se pudo actualizar el favorito' });
   }
 };
 
@@ -135,13 +135,11 @@ exports.rateMovie = async (req, res) => {
   const { id } = req.params;
   const { rating } = req.body;
 
-  // Validar que el rating esté entre 0 y 5
-  if (rating === undefined || rating === null || rating < 0 || rating > 5) {
+  if (rating === undefined || rating === null || !Number.isInteger(rating) || rating < 0 || rating > 5) {
     return res.status(400).json({ error: 'El rating debe estar entre 0 y 5' });
   }
 
   try {
-    // Verificar que la película existe y pertenece al usuario
     const movie = await prisma.movie.findFirst({
       where: { id, ownerId: req.user.userId },
     });
@@ -150,7 +148,6 @@ exports.rateMovie = async (req, res) => {
       return res.status(404).json({ error: 'Película no encontrada' });
     }
 
-    // Actualizar el rating
     const updatedMovie = await prisma.movie.update({
       where: { id },
       data: { rating },
